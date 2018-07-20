@@ -11,10 +11,15 @@ import time
 import tqdm
 import sys
 import argparse
+from pprint import pprint
 
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('-v', '--verbose', action='store_true')
+    parser.add_argument('-t', '--threshold', type=int, default=20)
+    parser.add_argument('-l', '--max_length', type=int, default=25)
+    parser.add_argument('-b', '--batch_size', type=int, default=32)
+    parser.add_argument('-d', '--dropout_keep_prob', type=float, default=0.2)
     try:
         arguments = parser.parse_args(args=args)
     except:
@@ -96,16 +101,157 @@ def get_words_and_occurences(questions, answers, verbose=False):
         print('{} words have been found.'.format(len(word2count)))
     return word2count
 
+def remove_less_frequent_words(word2count, threshold, verbose=False):
+    words2int = {}
+    word_number = 0
+    for word, count in word2count.items():
+        if count >= threshold:
+            words2int[word] = word_number
+            word_number += 1
+    if(verbose == True):
+        print('Total tokens after removing less frequent words: ', len(words2int))
+    return words2int
+
+def add_tokens_to_words(words2int, verbose=False):
+    tokens = ['<PAD>', '<EOS>', '<OUT>', '<SOS>']
+    for token in tokens:
+        words2int[token] = len(words2int)
+    if(verbose == True):
+        print('Total Tokens', len(words2int))
+    return words2int
+
+def get_inverse_dictionary(words2int, verbose=False):
+    ints2word = {w_i:w for w, w_i in words2int.items()}
+    if(verbose == True):
+        print('Words inverse dictionary has been created!')
+    return ints2word
+
+def add_eos_to_sentences(questions, answers, verbose=False):
+    for i in range(len(questions)):
+        questions[i] += ' <EOS>'
+    for i in range(len(answers)):
+        answers[i] += ' <EOS>'
+    if(verbose == True):
+        print('<EOS> has been added to questions and answers')
+    return (questions, answers)
+
+def words_to_tokens(questions, answers, words2int, verbose=False):
+    questions_to_int = []
+    for question in questions:
+        ints = []
+        for word in question.split():
+            if word not in words2int:
+                ints.append(words2int['<OUT>'])
+            else:
+                ints.append(words2int[word])
+        questions_to_int.append(ints)
+    answers_to_int = []
+    for answer in answers:
+        ints = []
+        for word in answer.split():
+            if word not in words2int:
+                ints.append(words2int['<OUT>'])
+            else:
+                ints.append(words2int[word])
+        answers_to_int.append(ints)
+    return (questions_to_int, answers_to_int)
+
+def sort_questions_and_answers(questions, answers, max_length, verbose=False):
+    sorted_questions = []
+    sorted_answers = []
+    for length in range(1, max_length + 1):
+        for i in enumerate(questions):
+            if(len(i[1]) == length):
+                sorted_questions.append(questions[i[0]])
+                sorted_answers.append(answers[i[0]])
+    if(verbose == True):
+        print('Questions and answers have been sorted according to the length of questions.')
+        print('The last 5 questions are: ')
+        pprint(sorted_questions[-5:])
+    return (sorted_questions, sorted_answers)
+
+def get_processed_questions_and_answers(threshold, max_length, verbose=False):
+    lines, conversations = create_data_from_files(verbose=verbose)
+    id2line = create_lines_dictionary(lines, verbose=verbose)
+    conversations_ids = create_conversations_ids(conversations, verbose=verbose)
+    questions, answers = create_questions_and_answers(id2line, conversations_ids, verbose=verbose)
+    word2count = get_words_and_occurences(questions, answers, verbose=verbose)
+    words2int = remove_less_frequent_words( word2count, threshold, verbose=verbose)
+    words2int = add_tokens_to_words(words2int, verbose=verbose)
+    ints2word = get_inverse_dictionary(words2int, verbose=verbose)
+    questions, answers = add_eos_to_sentences(questions, answers, verbose=verbose)
+    questions, answers = words_to_tokens(questions, answers, words2int, verbose=verbose)
+    questions, answers = sort_questions_and_answers(questions, answers, max_length, verbose=verbose)
+    return (questions, answers, words2int, ints2word)
+
+def model_inputs():
+    inputs = tf.placeholder(tf.int32, [None, None], name='inputs')
+    targets = tf.placeholder(tf.int32, [None, None], name='targets')
+    lr = tf.placeholder(tf.float32, name='learning_rate')
+    keep_prob = tf.placeholder(tf.float32, name='keep_prob')
+    if(verbose == True):
+        print('')
+    return (inputs, targets, lr, keep_prob)
+
+def preprocess_targets(targets, words2int, batch_size):
+    left_side = tf.fill([batch_size, 1], words2int['<SOS>'])
+    right_side = tf.strided_slice(targets, [0, 0], [batch_size, -1], [1, 1])
+    preprocessed_targets = tf.concat([left_side, right_side], 1, name='preprocessed_targets')
+    return preprocessed_targets
+
+def encoder_rnn_layer(rnn_inputs, rnn_size, num_layers, keep_prob, sequence_length):
+    lstm = tf.contrib.rnn.BasicLSTMCell(rnn_size)
+    lstm_dropout = tf.contrib.rnn.DropoutWrapper(lstm, input_keep_prob=keep_prob)
+    encoder_cell = tf.contrib.rnn.MultiRNNCell([lstm_dropout] * num_layers)
+    _, encoder_state = tf.nn.bidirectional_dynamic_rnn(cell_fw = encoder_cell,
+                                                       cell_bw = encoder_cell,
+                                                       sequence_length = sequence_length,
+                                                       inputs = rnn_inputs,
+                                                       dtype = tf.float32)
+    return encoder_state
+
+def decode_training_set(encoder_state, decoder_cell, decoder_embedded_input, sequence_length, decoding_scope, output_function, keep_prob, batch_size):
+    attention_states = tf.zeros([batch_size, 1, decoder_cell.output_size])
+    attention_keys, attention_values, attention_score_function, attention_construct_function = tf.contrib.seq2seq.prepare_attention(attention_states, attention_option = 'bahdanau', num_units = decoder_cell.output_size)
+    training_decoder_function = tf.contrib.seq2seq.attention_decoder_fn_train(encoder_state[0],
+                                                                              attention_keys,
+                                                                              attention_values,
+                                                                              attention_score_function,
+                                                                              attention_construct_function,
+                                                                              name = 'attn_dec_train')
+    decoder_output, _, _ = tf.contrib.seq2seq.dynamic_rnn_decoder(decoder_cell,
+                                                                  training_decoder_function,
+                                                                  decoder_embedded_input,
+                                                                  sequence_length,
+                                                                  scope = decoding_scope)
+    decoder_output_dropout = tf.nn.dropout(decoder_output, keep_prob)
+    return output_function(decoder_output_dropout)
+
+# To edit
+# def decode_training_set(encoder_state, decoder_cell, decoder_embedded_input, sequence_length, decoding_scope, output_function, keep_prob, batch_size):
+#     attention_states = tf.zeros([batch_size, 1, decoder_cell.output_size])
+#     attention_keys, attention_values, attention_score_function, attention_construct_function = tf.contrib.seq2seq.prepare_attention(attention_states, attention_option = 'bahdanau', num_units = decoder_cell.output_size)
+#     training_decoder_function = tf.contrib.seq2seq.attention_decoder_fn_train(encoder_state[0],
+#                                                                               attention_keys,
+#                                                                               attention_values,
+#                                                                               attention_score_function,
+#                                                                               attention_construct_function,
+#                                                                               name = 'attn_dec_train')
+#     decoder_output, _, _ = tf.contrib.seq2seq.dynamic_rnn_decoder(decoder_cell,
+#                                                                   training_decoder_function,
+#                                                                   decoder_embedded_input,
+#                                                                   sequence_length,
+#                                                                   scope = decoding_scope)
+#     decoder_output_dropout = tf.nn.dropout(decoder_output, keep_prob)
+#     return output_function(decoder_output_dropout)
+
 def main(argv=sys.argv):
     '''
     The main implementation of the movie conversations chatbot
     '''
     arguments = parse_arguments(argv[1:])
-    lines, conversations = create_data_from_files(verbose=arguments['verbose'])
-    id2line = create_lines_dictionary(lines, verbose=arguments['verbose'])
-    conversations_ids = create_conversations_ids(conversations, verbose=arguments['verbose'])
-    questions, answers = create_questions_and_answers(id2line, conversations_ids, verbose=arguments['verbose'])
-    word2count = get_words_and_occurences(questions, answers, verbose=arguments['verbose'])
+    questions, answers, words2int, ints2word = get_processed_questions_and_answers(arguments['threshold'], arguments['max_length'], verbose=arguments['verbose'])
+
 
 if __name__ == '__main__':
     main()
