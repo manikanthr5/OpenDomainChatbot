@@ -86,57 +86,62 @@ def get_words_and_occurences(questions, answers, verbose=False):
     return word2count
 
 def remove_less_frequent_words(word2count, threshold, verbose=False):
-    words2int = {}
+    questionswords2int = {}
     word_number = 0
     for word, count in word2count.items():
         if count >= threshold:
-            words2int[word] = word_number
+            questionswords2int[word] = word_number
+            word_number += 1
+    answerswords2int = {}
+    word_number = 0
+    for word, count in word2count.items():
+        if count >= threshold:
+            answerswords2int[word] = word_number
             word_number += 1
     if(verbose == True):
-        print('Total tokens after removing less frequent words: ', len(words2int))
-    return words2int
+        print('Total tokens after removing less frequent words: ', len(answerswords2int))
+    return (questionswords2int, answerswords2int)
 
-def add_tokens_to_words(words2int, verbose=False):
+def add_tokens_to_words(questionswords2int, answerswords2int, verbose=False):
     tokens = ['<PAD>', '<EOS>', '<OUT>', '<SOS>']
     for token in tokens:
-        words2int[token] = len(words2int)
+        questionswords2int[token] = len(questionswords2int) + 1
+        answerswords2int[token] = len(answerswords2int) + 1
     if(verbose == True):
-        print('Total Tokens', len(words2int))
-    return words2int
+        print('Total Tokens', len(answerswords2int))
+    return (questionswords2int, answerswords2int)
 
-def get_inverse_dictionary(words2int, verbose=False):
-    ints2word = {w_i:w for w, w_i in words2int.items()}
+def get_inverse_dictionary(answerswords2int, verbose=False):
+    answersints2word = {w_i:w for w, w_i in answerswords2int.items()}
     if(verbose == True):
-        print('Words inverse dictionary has been created!')
-    return ints2word
+        print('Words inverse dictionary of answers has been created!')
+    return answersints2word
 
-def add_eos_to_sentences(questions, answers, verbose=False):
-    for i in range(len(questions)):
-        questions[i] += ' <EOS>'
+def add_eos_to_sentences(answers, verbose=False):
     for i in range(len(answers)):
         answers[i] += ' <EOS>'
     if(verbose == True):
-        print('<EOS> has been added to questions and answers')
-    return (questions, answers)
+        print('<EOS> has been added to answers')
+    return answers
 
-def words_to_tokens(questions, answers, words2int, verbose=False):
+def words_to_tokens(questions, answers, questionswords2int, answerswords2int, verbose=False):
     questions_to_int = []
     for question in questions:
         ints = []
         for word in question.split():
-            if word not in words2int:
-                ints.append(words2int['<OUT>'])
+            if word not in questionswords2int:
+                ints.append(questionswords2int['<OUT>'])
             else:
-                ints.append(words2int[word])
+                ints.append(questionswords2int[word])
         questions_to_int.append(ints)
     answers_to_int = []
     for answer in answers:
         ints = []
         for word in answer.split():
-            if word not in words2int:
-                ints.append(words2int['<OUT>'])
+            if word not in answerswords2int:
+                ints.append(answerswords2int['<OUT>'])
             else:
-                ints.append(words2int[word])
+                ints.append(answerswords2int[word])
         answers_to_int.append(ints)
     return (questions_to_int, answers_to_int)
 
@@ -160,22 +165,13 @@ def get_processed_questions_and_answers(lines_file, conversations_file, threshol
     conversations_ids = create_conversations_ids(conversations, verbose=verbose)
     questions, answers = create_questions_and_answers(id2line, conversations_ids, verbose=verbose)
     word2count = get_words_and_occurences(questions, answers, verbose=verbose)
-    words2int = remove_less_frequent_words( word2count, threshold, verbose=verbose)
-    words2int = add_tokens_to_words(words2int, verbose=verbose)
-    ints2word = get_inverse_dictionary(words2int, verbose=verbose)
-    questions, answers = add_eos_to_sentences(questions, answers, verbose=verbose)
-    questions, answers = words_to_tokens(questions, answers, words2int, verbose=verbose)
+    questionswords2int, answerswords2int = remove_less_frequent_words( word2count, threshold, verbose=verbose)
+    questionswords2int, answerswords2int = add_tokens_to_words(questionswords2int, answerswords2int, verbose=verbose)
+    answersints2word = get_inverse_dictionary(answerswords2int, verbose=verbose)
+    answers = add_eos_to_sentences(answers, verbose=verbose)
+    questions, answers = words_to_tokens(questions, answers, questionswords2int, answerswords2int, verbose=verbose)
     questions, answers = sort_questions_and_answers(questions, answers, max_length, verbose=verbose)
-    return (questions, answers, words2int, ints2word)
-
-def model_inputs(verbose=False):
-    inputs = tf.placeholder(tf.int32, [None, None], name='inputs')
-    targets = tf.placeholder(tf.int32, [None, None], name='targets')
-    lr = tf.placeholder(tf.float32, name='learning_rate')
-    keep_prob = tf.placeholder(tf.float32, name='keep_prob')
-    if(verbose == True):
-        print('model inputs placeholders have been created!')
-    return (inputs, targets, lr, keep_prob)
+    return (questions, answers, questionswords2int, answerswords2int, answersints2word)
 
 def preprocess_targets(targets, words2int, batch_size):
     left_side = tf.fill([batch_size, 1], words2int['<SOS>'])

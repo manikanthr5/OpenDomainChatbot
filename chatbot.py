@@ -4,16 +4,20 @@ Building a chatbot with Deep NLP.
 """
 
 # Importing the libraries
-import numpy as np
-import tensorflow as tf
-import re
-import time
-import tqdm
 import sys
 import argparse
-from pprint import pprint
 from seq2seq import *
 from data_processing import *
+
+
+def model_inputs(verbose=False):
+    inputs = tf.placeholder(tf.int32, [None, None], name='inputs')
+    targets = tf.placeholder(tf.int32, [None, None], name='targets')
+    lr = tf.placeholder(tf.float32, name='learning_rate')
+    keep_prob = tf.placeholder(tf.float32, name='keep_prob')
+    if(verbose == True):
+        print('model inputs placeholders have been created!')
+    return (inputs, targets, lr, keep_prob)
 
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser()
@@ -37,7 +41,7 @@ def main(argv=sys.argv):
     The main implementation of the movie conversations chatbot
     '''
     arguments = parse_arguments(argv[1:])
-    questions, answers, words2int, ints2word = get_processed_questions_and_answers(arguments['lines_file'], arguments['conversations_file'], arguments['threshold'], arguments['max_length'], verbose=arguments['verbose'])
+    questions, answers, questionswords2int, answerswords2int, answersints2word = get_processed_questions_and_answers(arguments['lines_file'], arguments['conversations_file'], arguments['threshold'], arguments['max_length'], verbose=arguments['verbose'])
 
 if __name__ == '__main__':
     main()
