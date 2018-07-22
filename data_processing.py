@@ -10,7 +10,6 @@ import time
 import tqdm
 import sys
 import argparse
-from pprint import pprint
 
 def create_data_from_files(lines_file, conversations_file, verbose=False):
     ### Importing Dataset
@@ -59,7 +58,7 @@ def clean_text(text):
     text = re.sub(r"\'d", " wourld", text)
     text = re.sub(r"won't", "will not", text)
     text = re.sub(r"can't", "cannot", text)
-    text = re.sub(r"[-{}#/@;:\[\]<>{}+=|.,\\]", "", text)
+    text = re.sub(r"[-()\"#/@;:<>{}+=~|.?,]", "", text)
     return text
 
 def create_questions_and_answers(id2line, conversations_ids, verbose=False):
@@ -87,15 +86,11 @@ def get_words_and_occurences(questions, answers, verbose=False):
 
 def remove_less_frequent_words(word2count, threshold, verbose=False):
     questionswords2int = {}
-    word_number = 0
-    for word, count in word2count.items():
-        if count >= threshold:
-            questionswords2int[word] = word_number
-            word_number += 1
     answerswords2int = {}
     word_number = 0
     for word, count in word2count.items():
         if count >= threshold:
+            questionswords2int[word] = word_number
             answerswords2int[word] = word_number
             word_number += 1
     if(verbose == True):
@@ -145,36 +140,28 @@ def words_to_tokens(questions, answers, questionswords2int, answerswords2int, ve
         answers_to_int.append(ints)
     return (questions_to_int, answers_to_int)
 
-def sort_questions_and_answers(questions, answers, max_length, verbose=False):
+def sort_questions_and_answers(questions, answers, sequence_length, verbose=False):
     sorted_questions = []
     sorted_answers = []
-    for length in range(1, max_length + 1):
+    for length in range(1, sequence_length + 1):
         for i in enumerate(questions):
             if(len(i[1]) == length):
                 sorted_questions.append(questions[i[0]])
                 sorted_answers.append(answers[i[0]])
     if(verbose == True):
         print('Questions and answers have been sorted according to the length of questions.')
-        print('The last 5 questions are: ')
-        pprint(sorted_questions[-5:])
     return (sorted_questions, sorted_answers)
 
-def get_processed_questions_and_answers(lines_file, conversations_file, threshold, max_length, verbose=False):
+def get_processed_questions_and_answers(lines_file, conversations_file, threshold, sequence_length, verbose=False):
     lines, conversations = create_data_from_files(lines_file, conversations_file, verbose=verbose)
     id2line = create_lines_dictionary(lines, verbose=verbose)
     conversations_ids = create_conversations_ids(conversations, verbose=verbose)
     questions, answers = create_questions_and_answers(id2line, conversations_ids, verbose=verbose)
     word2count = get_words_and_occurences(questions, answers, verbose=verbose)
-    questionswords2int, answerswords2int = remove_less_frequent_words( word2count, threshold, verbose=verbose)
+    questionswords2int, answerswords2int = remove_less_frequent_words(word2count, threshold, verbose=verbose)
     questionswords2int, answerswords2int = add_tokens_to_words(questionswords2int, answerswords2int, verbose=verbose)
     answersints2word = get_inverse_dictionary(answerswords2int, verbose=verbose)
     answers = add_eos_to_sentences(answers, verbose=verbose)
     questions, answers = words_to_tokens(questions, answers, questionswords2int, answerswords2int, verbose=verbose)
-    questions, answers = sort_questions_and_answers(questions, answers, max_length, verbose=verbose)
+    questions, answers = sort_questions_and_answers(questions, answers, sequence_length, verbose=verbose)
     return (questions, answers, questionswords2int, answerswords2int, answersints2word)
-
-def preprocess_targets(targets, words2int, batch_size):
-    left_side = tf.fill([batch_size, 1], words2int['<SOS>'])
-    right_side = tf.strided_slice(targets, [0, 0], [batch_size, -1], [1, 1])
-    preprocessed_targets = tf.concat([left_side, right_side], 1, name='preprocessed_targets')
-    return preprocessed_targets
