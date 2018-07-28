@@ -4,9 +4,9 @@ This repository contains code for a generative type chatbot created using [RNNs]
 ## Table of Contents
 - [Introduction](#introduction)
   - [Retrieval-Based vs. Generative Chatbots](#retrieval-based-vs-generative-chatbots)
-  - [Data Used](#data-used)
   - [Prerequesites](#prerequesites)
 - [Installation Steps](#installation-steps)
+- [Data Used](#data-used)
 - [Project Structure](#project-structure)
 - [Model Training](#model-training)
 - [Chat with Bot](#chat-with-bot)
@@ -27,12 +27,9 @@ Some Background On Chatbots taken from [WildML](http://www.wildml.com) article o
 
 **Generative models** (harder) don’t rely on pre-defined responses. They generate new responses from scratch. Generative models are typically based on Machine Translation techniques, but instead of translating from one language to another, we “translate” from an input to an output (response).
 
-### Data Used
-I am using [Cornell Movie Dialogs Corpus](https://www.cs.cornell.edu/~cristian/Cornell_Movie-Dialogs_Corpus.html) for the purpose of training the model. Please download the data from this [link](http://www.cs.cornell.edu/~cristian/data/cornell_movie_dialogs_corpus.zip) and extract **movie_conversations.txt** and **movie_lines.txt** to ./data folder. Other files in this zip folder are optinal and please read through them to understand more about the data.
-
 ### Prerequesites
 
-I am creating this project to apply the skills I learnt while working on the course [Deep Learning for Natural Language Processing(http://web.stanford.edu/class/cs224n/) taught by Stanford Professors, [Christopher Manning](https://nlp.stanford.edu/~manning/) and [Richard Socher](https://www.socher.org/). I suggest you go through this course in order to understand about Bi-directional Recurrent Neural Networks, Embeddings and Attention Mechanism in Seq2Seq models.
+I am creating this project to apply the skills I learnt while working on the course [Deep Learning for Natural Language Processing](http://web.stanford.edu/class/cs224n/) taught by Stanford Professors, [Christopher Manning](https://nlp.stanford.edu/~manning/) and [Richard Socher](https://www.socher.org/). I suggest you go through this course in order to understand about Bi-directional Recurrent Neural Networks, Embeddings and Attention Mechanism in Seq2Seq models.
 
 ## Installation Steps
 In order to use this repository to create a chatbot, you first need have [Python 3.5](https://docs.python.org/3.5/) or more and need to install some Python Packages. I suggest you to create a [virtual environment](https://docs.python.org/3/tutorial/venv.html) for this purpose. Run the following commands in your favorite projects directory.
@@ -47,7 +44,12 @@ pip install -r requirements.txt
 
 Now you are ready to work with the Chatbot.
 
+## Data Used
+I am using [Cornell Movie Dialogs Corpus](https://www.cs.cornell.edu/~cristian/Cornell_Movie-Dialogs_Corpus.html) for the purpose of training the model. Please download the data from this [link](http://www.cs.cornell.edu/~cristian/data/cornell_movie_dialogs_corpus.zip) and extract **movie_conversations.txt** and **movie_lines.txt** to ./data folder. Other files in this zip folder are optional and please read through them to understand more about the data.
+
 ## Project Structure
+
+
 
 ## Model Training
 
