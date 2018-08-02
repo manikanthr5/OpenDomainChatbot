@@ -1,4 +1,4 @@
-# Movie Chatbot
+# Open Domain Chatbot
 This repository contains code for a generative type chatbot created using [RNNs](https://en.wikipedia.org/wiki/Recurrent_neural_network) with [attention mechanism](https://en.wikipedia.org/wiki/Recurrent_neural_network).
 
 ## Table of Contents
@@ -49,10 +49,7 @@ I am using [Cornell Movie Dialogs Corpus](https://www.cs.cornell.edu/~cristian/C
 
 ## Project Structure
 
-
-
 ## Model Training
-
 
 ## Chat with Bot
 
