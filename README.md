@@ -48,6 +48,7 @@ Now you are ready to work with the Chatbot.
 I am using [Cornell Movie Dialogs Corpus](https://www.cs.cornell.edu/~cristian/Cornell_Movie-Dialogs_Corpus.html) for the purpose of training the model. Please download the data from this [link](http://www.cs.cornell.edu/~cristian/data/cornell_movie_dialogs_corpus.zip) and extract **movie_conversations.txt** and **movie_lines.txt** to ./data folder. Other files in this zip folder are optional and please read through them to understand more about the data.
 
 ## Project Structure
+The project is divided into **3** parts.
 
 ## Model Training
 

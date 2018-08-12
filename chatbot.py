@@ -173,7 +173,7 @@ def build_model(batch_size = None,
                     batch_validation_loss_error = session.run(loss_error,
                                                     {
                                                     inputs: padded_questions_in_batch,
-                                                    targets: padded_answers_in_batch,
+                    TeslaV100                                targets: padded_answers_in_batch,
                                                     lr: learning_rate,
                                                     sequence_length: padded_questions_in_batch.shape[1],
                                                     keep_prob: 1
